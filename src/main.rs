@@ -3,38 +3,39 @@
 
 mod services;
 
-use clap::{ArgMatches, Command};
+use clap::Command;
 use services::{Configuration, Linnear};
-
-// List of commands.
-// We want to avoid using string literals in the code.
-const START_COMMAND: &str = "start";
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt::init();
 
+    let start_command = Command::new("start")
+        .alias("run")
+        .about("Starts the conversational service");
+
+    let migrate_command = Command::new("migrate")
+        .about("Migrate the database schema to the latest version");
+
     let command = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about("Interface to setup and manage the service")
         .arg_required_else_help(true)
-        .subcommand(start_command())
+        .subcommand(start_command)
+        .subcommand(migrate_command)
         .get_matches();
 
     match command.subcommand() {
-        Some((START_COMMAND, args)) => start_handler(args).await,
+        Some(("start", _)) => start_handler().await,
+        Some(("migrate", _)) => migrate_handler().await,
         _ => unreachable!(),
     }
 }
 
-fn start_command() -> Command {
-    Command::new(START_COMMAND)
-        .alias("run")
-        .about("Starts the service")
-}
-
-async fn start_handler(_args: &ArgMatches) {
+async fn start_handler() {
     let config = Configuration::from_env();
     let linnear = Linnear::new(&config).await;
 }
+
+async fn migrate_handler() {}
