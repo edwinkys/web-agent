@@ -1,0 +1,17 @@
+[package]
+name = "linnearai"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Metadata
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+authors = ["Edwin Kys <edwin@linnearai.com>"]
+
+# Links
+repository = "https://github.com/linnearai/linnear"
+documentation = "https://docs.linnearai.com"
+homepage = "https://www.linnearai.com"
+
+[dependencies]
