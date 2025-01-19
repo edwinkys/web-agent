@@ -1,15 +1,18 @@
 #![warn(unused_qualifications)]
 #![warn(missing_debug_implementations)]
 
+mod inferences;
 mod services;
+mod utils;
 
-use clap::Command;
+use clap::{arg, ArgMatches, Command};
 use dotenv::dotenv;
 use semver::Version;
 use services::{Configuration, Linnear};
 use sqlx::{Connection, PgConnection, Postgres};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 use url::Url;
 
 #[tokio::main]
@@ -17,7 +20,7 @@ async fn main() {
     dotenv().ok();
 
     let start_command = Command::new("start")
-        .alias("run")
+        .arg(arg!(-d --debug "Enable detailed traces for debugging"))
         .about("Starts the conversational service");
 
     let migrate_command = Command::new("migrate")
@@ -32,15 +35,22 @@ async fn main() {
         .get_matches();
 
     match command.subcommand() {
-        Some(("start", _)) => start_handler().await,
+        Some(("start", args)) => start_handler(args).await,
         Some(("migrate", _)) => migrate_handler().await,
         _ => unreachable!(),
     }
 }
 
-async fn start_handler() {
+async fn start_handler(args: &ArgMatches) {
+    let debug = *args.get_one::<bool>("debug").unwrap_or(&false);
+    if debug {
+        tracing_subscriber::fmt::init();
+        tracing::info!("Running the service in debugging mode...");
+    }
+
     let config = Configuration::from_env();
 
+    // Make sure the database schema is up-to-date.
     let package_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
     let schema_version = get_version(&config.database_url).await;
     if schema_version != package_version {
@@ -48,6 +58,7 @@ async fn start_handler() {
     }
 
     let linnear = Linnear::new(&config).await;
+    let service = Arc::new(linnear);
 }
 
 async fn migrate_handler() {
