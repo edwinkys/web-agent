@@ -55,6 +55,7 @@ setup-dev:
 
 	@touch .env
 	@echo "DB_URL=$(DB_URL)" > .env
+	@echo "OPENAI_API_KEY=xxx" >> .env
 
 	@cargo run migrate
 	@echo "$(GREEN)Environment setup complete:$(RESET)"
