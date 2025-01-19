@@ -17,14 +17,22 @@ homepage = "https://www.linnearai.com"
 [dependencies]
 tokio = { version = "1.42.0", features = ["macros", "rt-multi-thread"] }
 clap = "4.5.26"
+dotenv = "0.15.0"
+colored = "3.0.0"
+
+# Logging
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-dotenv = "0.15.0"
+
+# Serialization
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = "1.0.134"
 
 # Types
 uuid = { version = "1.11.0", features = ["serde", "v4", "fast-rng"] }
 chrono = { version = "0.4.39", features = ["serde"] }
 url = { version = "2.5.4", features = ["serde"] }
+semver = "1.0.24"
 
 [dependencies.sqlx]
 version = "0.8.3"

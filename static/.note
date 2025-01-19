@@ -1,0 +1,8 @@
+This directory stores static files that should be included in the final build
+since they are used by the application in one way or another.
+
+These might include:
+- Database migration scripts
+- SQL query templates
+- LLM prompts
+- Other static files
