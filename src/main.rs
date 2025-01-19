@@ -7,9 +7,10 @@ use clap::Command;
 use dotenv::dotenv;
 use semver::Version;
 use services::{Configuration, Linnear};
-use sqlx::{PgPool, Postgres};
+use sqlx::{Connection, PgConnection, Postgres};
 use std::fs;
 use std::path::Path;
+use url::Url;
 
 #[tokio::main]
 async fn main() {
@@ -39,6 +40,13 @@ async fn main() {
 
 async fn start_handler() {
     let config = Configuration::from_env();
+
+    let package_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+    let schema_version = get_version(&config.database_url).await;
+    if schema_version != package_version {
+        panic!("Please run the migrate command to update the schema.");
+    }
+
     let linnear = Linnear::new(&config).await;
 }
 
@@ -47,12 +55,8 @@ async fn migrate_handler() {
     tracing::info!("Migrating the database schema...");
 
     let config = Configuration::from_env();
-    let pool = PgPool::connect(config.database_url.as_str())
-        .await
-        .expect("Failed to connect to the Postgres database");
-
     let target_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-    let current_version = get_version(&pool).await;
+    let current_version = get_version(&config.database_url).await;
 
     if current_version >= target_version {
         tracing::info!("The database schema is up-to-date");
@@ -88,6 +92,10 @@ async fn migrate_handler() {
 
     migrations.sort_unstable();
 
+    let mut conn = PgConnection::connect(config.database_url.as_str())
+        .await
+        .expect("Failed to connect to the Postgres database");
+
     for migration in migrations.iter() {
         let filepath = migrations_dir.join(format!("{migration}.sql"));
         let script = fs::read_to_string(filepath)
@@ -95,13 +103,13 @@ async fn migrate_handler() {
 
         tracing::info!("Applying the migration script:\n\n{script}");
         sqlx::raw_sql(&script)
-            .execute(&pool)
+            .execute(&mut conn)
             .await
             .expect("Failed to execute the migration script");
 
         sqlx::query("UPDATE version SET version = $1")
             .bind(migration.to_string())
-            .execute(&pool)
+            .execute(&mut conn)
             .await
             .expect("Failed to update the schema version");
 
@@ -110,10 +118,14 @@ async fn migrate_handler() {
 }
 
 /// Retrieves the current schema version from the database.
-/// - pool: Postgres connection pool.
-async fn get_version(pool: &PgPool) -> Version {
+/// - url: Postgres database URL
+async fn get_version(url: &Url) -> Version {
+    let mut conn = PgConnection::connect(url.as_str())
+        .await
+        .expect("Failed to connect to the Postgres database");
+
     sqlx::query_scalar::<Postgres, String>("SELECT version from version")
-        .fetch_one(pool)
+        .fetch_one(&mut conn)
         .await
         .unwrap_or(String::from("0.0.0"))
         .parse::<Version>()

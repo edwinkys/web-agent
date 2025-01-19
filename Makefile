@@ -56,6 +56,7 @@ setup-dev:
 	@touch .env
 	@echo "DB_URL=$(DB_URL)" > .env
 
+	@cargo run migrate
 	@echo "$(GREEN)Environment setup complete:$(RESET)"
 	@echo "Please provide the .env file with the correct values."
 
