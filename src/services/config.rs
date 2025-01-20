@@ -5,6 +5,7 @@ use std::str::FromStr;
 use url::Url;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum LLMProvider {
     GPT,
 }

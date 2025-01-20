@@ -16,9 +16,11 @@ homepage = "https://www.linnearai.com"
 
 [dependencies]
 tokio = { version = "1.42.0", features = ["macros", "rt-multi-thread"] }
+reqwest = { version = "0.12.12", features = ["json"] }
 clap = "4.5.26"
 dotenv = "0.15.0"
 colored = "3.0.0"
+async-trait = "0.1.85"
 
 # Logging
 tracing = "0.1.41"

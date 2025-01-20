@@ -4,14 +4,19 @@ pub use gpt::InferenceGPT;
 
 use crate::utils;
 use anyhow::Result;
+use async_trait::async_trait;
+use reqwest::Client;
+use serde_json::{json, Value};
 use std::env;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {
     System,
     User,
     Assistant,
 }
 
+#[derive(Debug, Clone)]
 pub struct Message {
     pub role: Role,
     pub content: String,
@@ -53,7 +58,8 @@ pub trait ModelProvider {
     }
 }
 
+#[async_trait]
 pub trait LanguageModel {
     /// Infers the next message based on the provided messages.
-    fn infer(&self, messages: &[Message]) -> Result<Message>;
+    async fn infer(&self, messages: &[Message]) -> Result<Message>;
 }
