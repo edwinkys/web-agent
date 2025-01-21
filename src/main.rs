@@ -3,24 +3,33 @@
 
 mod inferences;
 mod services;
+mod subagents;
 mod utils;
 
-use clap::{arg, ArgMatches, Command};
+use clap::{arg, value_parser, ArgMatches, Command};
 use dotenv::dotenv;
+use futures::{SinkExt, StreamExt};
 use semver::Version;
 use services::{Configuration, Linnear};
-use sqlx::{Connection, PgConnection, Postgres};
+use sqlx::{Connection, PgConnection};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use url::Url;
+use tokio::net::TcpListener;
+use tokio::sync::mpsc;
+use tokio_tungstenite::accept_async;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    tracing_subscriber::fmt::init();
+
+    let port_arg = arg!(-p --port <port> "Port for the service to listen on")
+        .default_value("2505")
+        .value_parser(value_parser!(u16));
 
     let start_command = Command::new("start")
-        .arg(arg!(-d --debug "Enable detailed traces for debugging"))
+        .arg(port_arg)
         .about("Starts the conversational service");
 
     let migrate_command = Command::new("migrate")
@@ -42,32 +51,59 @@ async fn main() {
 }
 
 async fn start_handler(args: &ArgMatches) {
-    let debug = *args.get_one::<bool>("debug").unwrap_or(&false);
-    if debug {
-        tracing_subscriber::fmt::init();
-        tracing::info!("Running the service in debugging mode...");
-    }
+    // Parse the command-line arguments from Clap.
+    let port = *args.get_one::<u16>("port").unwrap();
 
     let config = Configuration::from_env();
 
     // Make sure the database schema is up-to-date.
     let package_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-    let schema_version = get_version(&config.database_url).await;
+    let schema_version = utils::get_version(&config.database_url).await;
     if schema_version != package_version {
         panic!("Please run the migrate command to update the schema.");
     }
 
     let linnear = Linnear::new(&config).await;
     let service = Arc::new(linnear);
+
+    // Create a new WebSocket server listener.
+    let addr = format!("[::]:{port}");
+    let listener = TcpListener::bind(addr).await.unwrap();
+    tracing::info!("The server is ready for connections on port {port}");
+
+    while let Ok((stream, _)) = listener.accept().await {
+        let service = service.clone();
+
+        tokio::spawn(async move {
+            let websocket = accept_async(stream).await.unwrap();
+            let (mut writer, mut reader) = websocket.split();
+            let (sender, mut receiver) = mpsc::unbounded_channel();
+
+            tokio::spawn(async move {
+                while let Some(message) = receiver.recv().await {
+                    if writer.send(message).await.is_err() {
+                        break;
+                    }
+                }
+            });
+
+            tokio::spawn(async move {
+                while let Some(Ok(message)) = reader.next().await {
+                    if sender.send(message).is_err() {
+                        break;
+                    }
+                }
+            });
+        });
+    }
 }
 
 async fn migrate_handler() {
-    tracing_subscriber::fmt::init();
     tracing::info!("Migrating the database schema...");
 
     let config = Configuration::from_env();
     let target_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-    let current_version = get_version(&config.database_url).await;
+    let current_version = utils::get_version(&config.database_url).await;
 
     if current_version >= target_version {
         tracing::info!("The database schema is up-to-date");
@@ -126,19 +162,4 @@ async fn migrate_handler() {
 
         tracing::info!("Migrated the database schema to version {migration}");
     }
-}
-
-/// Retrieves the current schema version from the database.
-/// - url: Postgres database URL
-async fn get_version(url: &Url) -> Version {
-    let mut conn = PgConnection::connect(url.as_str())
-        .await
-        .expect("Failed to connect to the Postgres database");
-
-    sqlx::query_scalar::<Postgres, String>("SELECT version from version")
-        .fetch_one(&mut conn)
-        .await
-        .unwrap_or(String::from("0.0.0"))
-        .parse::<Version>()
-        .expect("Failed to parse semantic versioning")
 }
