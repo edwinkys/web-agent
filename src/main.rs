@@ -10,7 +10,7 @@ use clap::{arg, value_parser, ArgMatches, Command};
 use dotenv::dotenv;
 use futures::{SinkExt, StreamExt};
 use semver::Version;
-use services::{Configuration, Linnear};
+use services::{Configuration, Linnear, SessionState};
 use sqlx::{Connection, PgConnection};
 use std::fs;
 use std::path::Path;
@@ -79,6 +79,11 @@ async fn start_handler(args: &ArgMatches) {
             let (mut writer, mut reader) = websocket.split();
             let (sender, mut receiver) = mpsc::unbounded_channel();
 
+            // Create session state for the connection.
+            // Depending on our memory agent, some of the state will be stored
+            // in the database for future reference.
+            let mut session_state = SessionState::default();
+
             tokio::spawn(async move {
                 while let Some(message) = receiver.recv().await {
                     if writer.send(message).await.is_err() {
@@ -89,7 +94,11 @@ async fn start_handler(args: &ArgMatches) {
 
             tokio::spawn(async move {
                 while let Some(Ok(message)) = reader.next().await {
-                    if sender.send(message).is_err() {
+                    let response = service
+                        .process_message(&mut session_state, &message)
+                        .await;
+
+                    if sender.send(response).is_err() {
                         break;
                     }
                 }

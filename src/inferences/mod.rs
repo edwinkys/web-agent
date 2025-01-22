@@ -59,7 +59,7 @@ pub trait ModelProvider {
 }
 
 #[async_trait]
-pub trait LanguageModel {
+pub trait LanguageModel: Send + Sync {
     /// Infers the next message based on the provided messages.
     async fn infer(&self, messages: &[Message]) -> Result<Message>;
 }

@@ -60,9 +60,9 @@ impl Configuration {
     }
 
     /// Returns a callable trait object of the language model provider.
-    pub fn language_model(&self) -> Box<dyn LanguageModel> {
+    pub fn language_model(&self) -> Arc<dyn LanguageModel> {
         match self.llm_provider {
-            LLMProvider::GPT => Box::new(InferenceGPT::new()),
+            LLMProvider::GPT => Arc::new(InferenceGPT::new()),
         }
     }
 }
