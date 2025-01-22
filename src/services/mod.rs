@@ -61,7 +61,15 @@ impl Linnear {
             content,
         });
 
-        let response = self.planner.respond(state).await;
-        WSMessage::Text(response.content.into())
+        let response = match self.planner.respond(state).await {
+            Ok(response) => response,
+            Err(e) => {
+                let message = "Failed to generate a response";
+                tracing::error!("{message}: {e}");
+                return format!("ERROR: {message}.").into();
+            },
+        };
+
+        response.content.into()
     }
 }

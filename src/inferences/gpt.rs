@@ -23,9 +23,13 @@ impl ModelProvider for InferenceGPT {
 
 #[async_trait]
 impl LanguageModel for InferenceGPT {
-    async fn infer(&self, messages: &[Message]) -> Result<Message> {
+    async fn infer(
+        &self,
+        instruction: &Message,
+        messages: &[Message],
+    ) -> Result<Message> {
         let mut body = json!({ "model": self.model, "messages": [] });
-        for message in messages {
+        for message in [instruction].into_iter().chain(messages.iter()) {
             body["messages"].as_array_mut().unwrap().push(json!({
                 "role": match message.role {
                     Role::System => "developer",
@@ -68,10 +72,14 @@ mod tests {
         let inference = InferenceGPT::new();
         let messages = vec![Message {
             role: Role::System,
-            content: "This is a test. So, only say: Hello".to_string(),
+            content: "Say: Hello".to_string(),
         }];
 
-        let message = inference.infer(&messages).await.unwrap();
+        let message = inference
+            .infer(&Message::default(), &messages)
+            .await
+            .unwrap();
+
         assert_eq!(&message.content, "Hello");
     }
 }

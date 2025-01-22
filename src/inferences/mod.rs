@@ -22,6 +22,16 @@ pub struct Message {
     pub content: String,
 }
 
+#[cfg(test)]
+impl Default for Message {
+    fn default() -> Self {
+        Message {
+            role: Role::System,
+            content: String::from("Please respond only as instructed."),
+        }
+    }
+}
+
 // When we add more language model providers, we want them to implement these
 // traits. The model provider trait helps the service to initialize the
 // provider while the language model trait helps the service to call the
@@ -61,5 +71,11 @@ pub trait ModelProvider {
 #[async_trait]
 pub trait LanguageModel: Send + Sync {
     /// Infers the next message based on the provided messages.
-    async fn infer(&self, messages: &[Message]) -> Result<Message>;
+    /// - instruction: Base instruction for the inference
+    /// - messages: List of messages to infer the next message
+    async fn infer(
+        &self,
+        instruction: &Message,
+        messages: &[Message],
+    ) -> Result<Message>;
 }

@@ -119,7 +119,7 @@ async fn migrate_handler() {
         return;
     }
 
-    let migrations_dir = Path::new("static").join("migrations");
+    let migrations_dir = Path::new("static/migrations");
 
     // List all the migration files that need to be applied.
     let mut migrations = fs::read_dir(&migrations_dir)
