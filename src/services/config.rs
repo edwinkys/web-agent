@@ -4,6 +4,11 @@ use std::env;
 use std::str::FromStr;
 use url::Url;
 
+/// LLM provider name.
+///
+/// We use the LLM product name instead of the company name to allow for
+/// easier configuration and backward compatibility with another LLM family
+/// from the same company.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum LLMProvider {

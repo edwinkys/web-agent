@@ -10,7 +10,7 @@ pub struct PlanningAgent {
 impl PlanningAgent {
     /// Creates a new instance of the planning agent.
     pub fn new(model: &Arc<dyn LanguageModel>) -> Self {
-        let filepath = Path::new("static/prompts/planning.txt");
+        let filepath = Path::new("static/instructions/planning.txt");
         let instruction = Message {
             role: Role::Assistant,
             content: read_instruction(&filepath),
@@ -43,5 +43,27 @@ impl PlanningAgent {
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::{Configuration, SessionState};
+
+    #[tokio::test]
+    async fn test_respond() {
+        let config = Configuration::from_env();
+        let agent = PlanningAgent::new(&config.language_model());
+        let mut state = SessionState::default();
+
+        state.history.push(Message {
+            role: Role::User,
+            content: "Can you give me a cupcake recipe? Yes or no only."
+                .to_string(),
+        });
+
+        let response = agent.respond(&mut state).await.unwrap();
+        assert_eq!(response.content, "No.");
     }
 }
